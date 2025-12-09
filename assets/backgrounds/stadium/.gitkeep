@@ -1,0 +1,4 @@
+# Place stadium background images here
+# Example: stadium1.jpg, stadium2.jpg, etc.
+# The backgroundId in API requests should match the filename without extension
+

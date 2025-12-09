@@ -1,0 +1,4 @@
+# Place captain background images here
+# Example: captain1.jpg, captain2.jpg, etc.
+# The backgroundId in API requests should match the filename without extension
+
