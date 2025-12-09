@@ -8,6 +8,8 @@ const envSchema = z.object({
   REDIS_URL: z.string().url().optional(),
   GEMINI_API_KEY: z.string().min(1),
   FRONTEND_URL: z.string().url().optional(),
+  EMAIL_USER: z.string().email(),
+  EMAIL_PASS: z.string().min(1),
 });
 
 const parseEnv = () => {

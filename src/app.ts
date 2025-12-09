@@ -3,6 +3,7 @@ import cors from "cors";
 import path from "path";
 import { errorHandler } from "./middleware/errorHandler";
 import jobsRouter from "./routes/jobs.routes";
+import emailRouter from "./routes/email.routes";
 import { env } from "./config/env";
 
 const app = express();
@@ -85,6 +86,7 @@ app.get("/health/queue", async (_req, res) => {
 
 // API routes
 app.use("/api/jobs", jobsRouter);
+app.use("/api/email", emailRouter);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
