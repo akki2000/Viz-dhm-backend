@@ -139,7 +139,6 @@ export async function createJob(req: Request, res: Response, next: NextFunction)
       });
     } catch (error) {
       // Job failed
-      finalStatus = "failed";
       errorMessage = error instanceof Error ? error.message : String(error);
       
       if (!photoProcessingQueue) {
