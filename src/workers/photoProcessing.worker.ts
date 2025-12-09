@@ -112,7 +112,7 @@ process.on("uncaughtException", (error) => {
 });
 
 // Handle unhandled promise rejections
-process.on("unhandledRejection", (reason, promise) => {
+process.on("unhandledRejection", (reason) => {
   console.error("Unhandled Rejection in worker:", reason);
   // Log but don't exit - let PM2 handle it
 });
