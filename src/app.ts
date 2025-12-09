@@ -15,6 +15,9 @@ const allowedOrigins = [
   env.FRONTEND_URL, // Allow additional frontend URL from env
 ].filter(Boolean) as string[]; // Remove undefined values
 
+console.log("CORS Configuration:");
+console.log("Allowed origins:", allowedOrigins.join(", "));
+
 app.use(
   cors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
@@ -24,14 +27,34 @@ app.use(
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.warn(`CORS: Blocked request from origin: ${origin}`);
+        console.warn(`CORS: Allowed origins are: ${allowedOrigins.join(", ")}`);
         callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true, // Allow cookies/credentials if needed
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: [
+      "Content-Type", 
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+      "Access-Control-Request-Method",
+      "Access-Control-Request-Headers"
+    ],
+    exposedHeaders: ["Content-Type", "Content-Length"],
+    maxAge: 86400, // 24 hours
+    preflightContinue: false,
+    optionsSuccessStatus: 204
   })
 );
+
+// Request logging middleware (for debugging)
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Origin: ${req.headers.origin || 'none'}`);
+  next();
+});
 
 // Middleware
 app.use(express.json());
