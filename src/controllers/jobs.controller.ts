@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { v4 as uuidv4 } from "uuid";
 import multer from "multer";
-import { photoProcessingQueue, queueEvents } from "../config/queue";
+import { photoProcessingQueue } from "../config/queue";
 import { JobPayload, JobMode } from "../types/jobTypes";
 import { getRawImagePath, paths } from "../utils/filePaths";
 import { getJobStatus } from "../services/jobStatus.service";
 import { processPhotoJob } from "../services/photoProcessing.service";
-import { setJobStatus, getJobStatus as getInMemoryJobStatus } from "../services/inMemoryJobStore";
+import { setJobStatus, getInMemoryJobStatus } from "../services/inMemoryJobStore";
 import { createError } from "../middleware/errorHandler";
 import fs from "fs/promises";
 import path from "path";
@@ -83,7 +83,6 @@ export async function createJob(req: Request, res: Response, next: NextFunction)
 
     // Process the job and wait for completion before responding
     let result;
-    let finalStatus: "completed" | "failed" = "completed";
     let errorMessage: string | undefined;
 
     try {

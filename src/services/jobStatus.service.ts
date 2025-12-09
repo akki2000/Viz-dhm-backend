@@ -1,4 +1,3 @@
-import { Job } from "bullmq";
 import { photoProcessingQueue } from "../config/queue";
 import { JobStatusResponse } from "../types/jobTypes";
 import { getStaticImageUrl } from "../utils/filePaths";

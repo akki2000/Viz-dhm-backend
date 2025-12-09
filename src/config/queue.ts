@@ -46,12 +46,13 @@ if (env.REDIS_URL) {
   // Disable queue on first connection error to prevent spam
   photoProcessingQueue.on("error", (error) => {
     // Check if it's a connection error
+    const errorAny = error as any;
     const isConnectionError = 
       error.message?.includes("ECONNREFUSED") || 
       error.message?.includes("connect") ||
-      error.code === "ECONNREFUSED" ||
+      errorAny.code === "ECONNREFUSED" ||
       error.name === "AggregateError" ||
-      (error as any).errors?.some((e: any) => e.code === "ECONNREFUSED");
+      errorAny.errors?.some((e: any) => e.code === "ECONNREFUSED");
     
     if (isConnectionError && photoProcessingQueue && !hasLoggedFallback) {
       // Log once and disable queue
@@ -76,10 +77,11 @@ if (env.REDIS_URL) {
   // Also handle QueueEvents errors
   if (queueEvents) {
     queueEvents.on("error", (error) => {
+      const errorAny = error as any;
       const isConnectionError = 
         error.message?.includes("ECONNREFUSED") || 
         error.message?.includes("connect") ||
-        error.code === "ECONNREFUSED";
+        errorAny.code === "ECONNREFUSED";
       
       if (isConnectionError && !hasLoggedFallback) {
         hasLoggedFallback = true;

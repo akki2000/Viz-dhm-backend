@@ -22,10 +22,11 @@ export function errorHandler(
     stack: err.stack,
   });
 
-  res.status(statusCode).json({
-    message,
-    ...(details && { details }),
-  });
+  const response: { message: string; details?: unknown } = { message };
+  if (details !== undefined && details !== null) {
+    response.details = details;
+  }
+  res.status(statusCode).json(response);
 }
 
 export function createError(message: string, statusCode: number, details?: unknown): AppError {

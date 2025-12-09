@@ -64,7 +64,7 @@ app.get("/health/queue", async (_req, res) => {
     const completed = await photoProcessingQueue.getCompletedCount();
     const failed = await photoProcessingQueue.getFailedCount();
 
-    res.json({
+    return res.json({
       queueEnabled: true,
       mode: "queue-based",
       redis: "connected",
@@ -76,7 +76,7 @@ app.get("/health/queue", async (_req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       queueEnabled: false,
       error: error instanceof Error ? error.message : String(error),
     });

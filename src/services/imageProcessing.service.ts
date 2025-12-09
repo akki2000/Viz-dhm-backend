@@ -83,7 +83,6 @@ export async function processImage(
     const newHeight = Math.floor(fgMetadata.height * compositeConfig.scale);
     processedForeground = foreground.resize(newWidth, newHeight, {
       fit: "inside",
-      preserveAspectRatio: true,
     });
   }
 

@@ -33,7 +33,6 @@ export async function removeGreenScreen(inputPath: string, outputPath: string): 
     const r = pixels[i];
     const g = pixels[i + 1];
     const b = pixels[i + 2];
-    const a = channels === 4 ? pixels[i + 3] : 255;
 
     // Check if pixel is in green range
     const isGreen =
