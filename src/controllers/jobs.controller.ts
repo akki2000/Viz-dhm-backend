@@ -49,28 +49,21 @@ export async function createJob(req: Request, res: Response, next: NextFunction)
 
     const { mode, backgroundId, userSessionId } = req.body;
 
-    // Validate mode
     if (!mode || (mode !== "stadium" && mode !== "captain")) {
       throw createError('Mode must be "stadium" or "captain"', 400);
     }
 
-    // Validate backgroundId
     if (!backgroundId || typeof backgroundId !== "string") {
       throw createError("backgroundId is required", 400);
     }
 
-    // Generate job ID
     const jobId = uuidv4();
-    
-    // Start timer for request processing
     const startTime = Date.now();
     console.log(`[${jobId}] Request received at ${new Date().toISOString()}`);
 
-    // Move uploaded file to final location with jobId
     const finalImagePath = getRawImagePath(jobId);
     await fs.rename(req.file.path, finalImagePath);
 
-    // Create job payload
     const payload: JobPayload = {
       jobId,
       mode: mode as JobMode,
@@ -78,79 +71,40 @@ export async function createJob(req: Request, res: Response, next: NextFunction)
       inputImagePath: finalImagePath,
       userSessionId: userSessionId || undefined,
       createdAt: new Date().toISOString(),
-      startTime, // Include start time for timing calculations
+      startTime,
     };
 
-    // Process the job and wait for completion before responding
-    let result;
-    let errorMessage: string | undefined;
+    if (photoProcessingQueue) {
+      // Add to queue and return immediately
+      await photoProcessingQueue.add("process-photo", payload, {
+        jobId,
+      });
 
-    try {
-      if (photoProcessingQueue) {
-        // Use queue-based processing and wait for completion
-        const job = await photoProcessingQueue.add("process-photo", payload, {
-          jobId, // Use jobId as the BullMQ job ID for easy lookup
-        });
-
-        // Wait for job to complete by polling job state
-        let jobState = await job.getState();
-        let attempts = 0;
-        const maxAttempts = 300; // 5 minutes max (300 * 1 second intervals)
-        
-        while (jobState !== "completed" && jobState !== "failed" && attempts < maxAttempts) {
-          await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
-          jobState = await job.getState();
-          attempts++;
-        }
-
-        if (jobState === "completed") {
-          // Refresh job to get latest returnvalue
-          const completedJob = await photoProcessingQueue.getJob(job.id!);
-          const returnValue = completedJob?.returnvalue as { resultImagePath?: string } | undefined;
-          if (returnValue?.resultImagePath) {
-            result = { resultImagePath: returnValue.resultImagePath };
-          } else {
-            // Fallback: construct path from jobId (standard path)
-            result = { resultImagePath: `uploads/outputs/${jobId}_final.jpg` };
-          }
-        } else if (jobState === "failed") {
-          // Refresh job to get latest failedReason
-          const failedJob = await photoProcessingQueue.getJob(job.id!);
-          const failedReason = failedJob?.failedReason || "Job processing failed";
-          throw new Error(failedReason);
-        } else {
-          throw new Error(`Job processing timed out after ${maxAttempts} seconds`);
-        }
-      } else {
-        // Process directly without queue (no Redis)
-        setJobStatus(jobId, "processing");
-        result = await processPhotoJob(payload);
+      // Return job ID immediately - frontend polls /api/jobs/:jobId
+      res.status(202).json({
+        jobId,
+        status: "processing",
+        userSessionId: userSessionId || undefined,
+        message: "Job queued successfully. Poll /api/jobs/:jobId for status",
+      });
+    } else {
+      // Direct processing fallback
+      setJobStatus(jobId, "processing");
+      try {
+        const result = await processPhotoJob(payload);
         setJobStatus(jobId, "completed", result.resultImagePath);
-      }
-
-      // Job completed successfully
-      const resultImageUrl = `/static/outputs/${jobId}_final.jpg`;
-
-      res.status(200).json({
-        jobId,
-        status: "completed",
-        userSessionId: userSessionId || undefined,
-        userImageUrl: resultImageUrl,
-      });
-    } catch (error) {
-      // Job failed
-      errorMessage = error instanceof Error ? error.message : String(error);
-      
-      if (!photoProcessingQueue) {
+        
+        res.status(200).json({
+          jobId,
+          status: "completed",
+          userSessionId: userSessionId || undefined,
+          userImageUrl: `/static/outputs/${jobId}_final.jpg`,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         setJobStatus(jobId, "failed", undefined, errorMessage);
+        throw error;
       }
-
-      res.status(500).json({
-        jobId,
-        status: "failed",
-        userSessionId: userSessionId || undefined,
-        errorMessage: errorMessage,
-      });
     }
   } catch (error) {
     next(error);

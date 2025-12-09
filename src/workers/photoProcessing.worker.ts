@@ -71,8 +71,17 @@ const worker = new Worker(
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
       const totalTime = Date.now() - requestStartTime;
-      console.error(`[${jobId}] ❌ Processing failed after ${totalTime}ms:`, errorMessage);
+      
+      console.error(`[${jobId}] ❌ Processing failed after ${totalTime}ms`);
+      console.error(`[${jobId}] Error message: ${errorMessage}`);
+      if (errorStack) {
+        console.error(`[${jobId}] Error stack: ${errorStack}`);
+      }
+      
+      // Re-throw to mark job as failed in queue
+      // Worker will continue processing other jobs
       throw error;
     }
   },
@@ -92,6 +101,20 @@ worker.on("failed", (job, err) => {
 
 worker.on("error", (err) => {
   console.error("Worker error:", err);
+  // Don't crash - let PM2 handle restarts if needed
+});
+
+// Handle uncaught exceptions - prevent worker crash
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception in worker:", error);
+  // Log but don't exit - let PM2 decide if restart is needed
+  // The error is already logged, job will be marked as failed
+});
+
+// Handle unhandled promise rejections
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection in worker:", reason);
+  // Log but don't exit - let PM2 handle it
 });
 
 console.log(`Photo processing worker started with concurrency: ${WORKER_CONCURRENCY}`);
