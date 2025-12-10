@@ -15,6 +15,9 @@ if (!photoProcessingQueue || !queueOptions) {
 
 const WORKER_CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY || "2", 10);
 
+// Track if we've already logged connection errors to avoid spam
+let hasLoggedConnectionError = false;
+
 const worker = new Worker(
   "photo-processing-queue",
   async (job: Job<JobPayload>) => {
@@ -91,7 +94,30 @@ worker.on("failed", (job, err) => {
 });
 
 worker.on("error", (err) => {
-  console.error("Worker error:", err);
+  // Check if it's a connection error
+  const errorAny = err as any;
+  const isConnectionError = 
+    err.message?.includes("ECONNREFUSED") || 
+    err.message?.includes("connect") ||
+    errorAny.code === "ECONNREFUSED" ||
+    err.name === "AggregateError" ||
+    errorAny.errors?.some((e: any) => e.code === "ECONNREFUSED");
+  
+  if (isConnectionError) {
+    if (!hasLoggedConnectionError) {
+      console.error("❌ Redis connection failed - worker cannot operate without Redis");
+      console.error("   Please start Redis (e.g., Docker: docker run -d -p 6379:6379 redis)");
+      console.error("   Or run the server without the worker (it will process jobs directly)");
+      hasLoggedConnectionError = true;
+    }
+    // Exit gracefully after logging the error
+    setTimeout(() => {
+      process.exit(1);
+    }, 1000);
+  } else {
+    // Log non-connection errors normally
+    console.error("Worker error:", err);
+  }
 });
 
 console.log(`Photo processing worker started with concurrency: ${WORKER_CONCURRENCY}`);
