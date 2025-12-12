@@ -15,7 +15,7 @@ async function sleep(ms: number): Promise<void> {
  * Enhances the composited image using Google Gemini AI
  * Sends the image with a prompt to improve lighting, edges, and blending
  */
-export async function enhanceImageWithAI(inputImagePath: string): Promise<Buffer> {
+export async function enhanceImageWithAI(inputImagePath: string, mode: String): Promise<Buffer> {
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -36,12 +36,18 @@ export async function enhanceImageWithAI(inputImagePath: string): Promise<Buffer
 
       const config = {
         responseModalities: ["IMAGE", "TEXT"],
+        temperature: 0.3,
       };
 
+      // const model = "gemini-3-pro-image-preview";
       const model = "gemini-2.5-flash-image";
 
       // Create the prompt for image enhancement
-      const prompt = `Enhance this composited photo booth image: fix lighting to match the background, remove any green screen artifacts, smooth edges around the person, adjust shadows and highlights for natural blending, and improve overall photo quality to look professional and realistic.`;
+      const captain_prompt = `this is the photo i have created in in photoshop quicky by placing this guy over with the cricketer can you create a perfect image of both of them together posing for a photo like fan and celebrity. not too much close, also fix the edges and the lighting. fix the users pose accordingly like he is posing with a celebrity looking at camera, keep the same background must change the pose of the Fan to not overlap the cricketer`;
+
+      const stadium_prompt = `this is the photo i have created in in photoshop quickly by placing this guy over on background i want you to create a Perfectly composited professional photo with the person in the same background fix the lighting, Perspective, camera angle and persons pose and position in the background. fix the users pose accordingly like he is posing in the background respectively looking at camera.  make it look natural, fix users image if its blurry and and also fix the edges`;
+
+      const prompt = mode === "captain" ? captain_prompt : stadium_prompt;
 
       const contents = [
         {
@@ -59,6 +65,8 @@ export async function enhanceImageWithAI(inputImagePath: string): Promise<Buffer
           ],
         },
       ];
+
+      console.log("mode", mode);
 
       // Generate content stream
       const response = await ai.models.generateContentStream({

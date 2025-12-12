@@ -31,7 +31,7 @@ export async function processPhotoJob(payload: JobPayload): Promise<JobResult> {
     // Step 2: Enhance with AI
     const step2Start = Date.now();
     console.log(`[${jobId}] Step 2: Enhancing with AI...`);
-    const enhancedBuffer = await enhanceImageWithAI(compositedPath);
+    const enhancedBuffer = await enhanceImageWithAI(compositedPath, mode);
     const step2Duration = Date.now() - step2Start;
     console.log(`[${jobId}] Step 2 completed in ${step2Duration}ms`);
 

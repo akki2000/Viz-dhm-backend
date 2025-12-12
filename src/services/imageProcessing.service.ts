@@ -1,6 +1,8 @@
 import sharp from "sharp";
-import { removeGreenScreen } from "../utils/greenScreen";
-import { getForegroundPath, getCompositedPath, getBackgroundPath } from "../utils/filePaths";
+// import { removeGreenScreen } from "../utils/greenScreen";
+import { 
+    // getForegroundPath,
+   getCompositedPath, getBackgroundPath } from "../utils/filePaths";
 import { JobMode } from "../types/jobTypes";
 import fs from "fs/promises";
 
