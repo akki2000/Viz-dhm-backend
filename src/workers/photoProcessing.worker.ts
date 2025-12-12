@@ -1,24 +1,37 @@
 import { Worker, Job } from "bullmq";
-import { queueOptions, photoProcessingQueue } from "../config/queue";
+import { queueOptions, photoProcessingQueue, isRedisAvailable } from "../config/queue";
 import { JobPayload, JobResult } from "../types/jobTypes";
 import { processImage } from "../services/imageProcessing.service";
 import { enhanceImageWithAI } from "../services/aiEditing.service";
 import { getFinalImagePath } from "../utils/filePaths";
 import fs from "fs/promises";
 
-// Check if Redis is available
-if (!photoProcessingQueue || !queueOptions) {
-  console.log("⚠️  Redis not configured - worker not needed in direct processing mode");
-  console.log("   Jobs will be processed directly in the API server");
-  process.exit(0);
-}
+// Check if Redis is configured and actually available
+(async () => {
+  if (!photoProcessingQueue || !queueOptions) {
+    console.log("⚠️  Redis not configured - worker not needed in direct processing mode");
+    console.log("   Jobs will be processed directly in the API server");
+    process.exit(0);
+  }
 
-const WORKER_CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY || "2", 10);
+  // Test if Redis is actually connected
+  const redisAvailable = await isRedisAvailable();
+  if (!redisAvailable) {
+    console.log("⚠️  Redis is not available (connection failed) - worker not needed");
+    console.log("   Jobs will be processed directly in the API server");
+    console.log("   Make sure Redis is running if you want to use queue-based processing");
+    process.exit(0);
+  }
 
-// Track if we've already logged connection errors to avoid spam
-let hasLoggedConnectionError = false;
+  // Redis is available, start the worker
+  startWorker();
+})();
 
-const worker = new Worker(
+function startWorker() {
+
+  const WORKER_CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY || "2", 10);
+
+  const worker = new Worker(
   "photo-processing-queue",
   async (job: Job<JobPayload>) => {
     const { jobId, inputImagePath, mode, backgroundId, startTime } = job.data;
@@ -74,8 +87,17 @@ const worker = new Worker(
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
       const totalTime = Date.now() - requestStartTime;
-      console.error(`[${jobId}] ❌ Processing failed after ${totalTime}ms:`, errorMessage);
+      
+      console.error(`[${jobId}] ❌ Processing failed after ${totalTime}ms`);
+      console.error(`[${jobId}] Error message: ${errorMessage}`);
+      if (errorStack) {
+        console.error(`[${jobId}] Error stack: ${errorStack}`);
+      }
+      
+      // Re-throw to mark job as failed in queue
+      // Worker will continue processing other jobs
       throw error;
     }
   },
@@ -85,72 +107,46 @@ const worker = new Worker(
   }
 );
 
-worker.on("completed", (job) => {
-  console.log(`Job ${job.id} completed`);
-});
+  worker.on("completed", (job) => {
+    console.log(`Job ${job.id} completed`);
+  });
 
-worker.on("failed", (job, err) => {
-  console.error(`Job ${job?.id} failed:`, err.message);
-});
+  worker.on("failed", (job, err) => {
+    console.error(`Job ${job?.id} failed:`, err.message);
+  });
 
-worker.on("error", (err) => {
-<<<<<<< HEAD
-  // Check if it's a connection error
-  const errorAny = err as any;
-  const isConnectionError = 
-    err.message?.includes("ECONNREFUSED") || 
-    err.message?.includes("connect") ||
-    errorAny.code === "ECONNREFUSED" ||
-    err.name === "AggregateError" ||
-    errorAny.errors?.some((e: any) => e.code === "ECONNREFUSED");
-  
-  if (isConnectionError) {
-    if (!hasLoggedConnectionError) {
-      console.error("❌ Redis connection failed - worker cannot operate without Redis");
-      console.error("   Please start Redis (e.g., Docker: docker run -d -p 6379:6379 redis)");
-      console.error("   Or run the server without the worker (it will process jobs directly)");
-      hasLoggedConnectionError = true;
-    }
-    // Exit gracefully after logging the error
-    setTimeout(() => {
-      process.exit(1);
-    }, 1000);
-  } else {
-    // Log non-connection errors normally
+  worker.on("error", (err) => {
     console.error("Worker error:", err);
-  }
-=======
-  console.error("Worker error:", err);
-  // Don't crash - let PM2 handle restarts if needed
-});
+    // Don't crash - let PM2 handle restarts if needed
+  });
 
-// Handle uncaught exceptions - prevent worker crash
-process.on("uncaughtException", (error) => {
-  console.error("Uncaught Exception in worker:", error);
-  // Log but don't exit - let PM2 decide if restart is needed
-  // The error is already logged, job will be marked as failed
-});
+  // Handle uncaught exceptions - prevent worker crash
+  process.on("uncaughtException", (error) => {
+    console.error("Uncaught Exception in worker:", error);
+    // Log but don't exit - let PM2 decide if restart is needed
+    // The error is already logged, job will be marked as failed
+  });
 
-// Handle unhandled promise rejections
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection in worker:", reason);
-  // Log but don't exit - let PM2 handle it
->>>>>>> parent of 0cf6c99 (Update photoProcessing.worker.ts)
-});
+  // Handle unhandled promise rejections
+  process.on("unhandledRejection", (reason) => {
+    console.error("Unhandled Rejection in worker:", reason);
+    // Log but don't exit - let PM2 handle it
+  });
 
-console.log(`Photo processing worker started with concurrency: ${WORKER_CONCURRENCY}`);
-console.log("Waiting for jobs...");
+  console.log(`Photo processing worker started with concurrency: ${WORKER_CONCURRENCY}`);
+  console.log("Waiting for jobs...");
 
-// Graceful shutdown
-process.on("SIGTERM", async () => {
-  console.log("SIGTERM received, closing worker...");
-  await worker.close();
-  process.exit(0);
-});
+  // Graceful shutdown
+  process.on("SIGTERM", async () => {
+    console.log("SIGTERM received, closing worker...");
+    await worker.close();
+    process.exit(0);
+  });
 
-process.on("SIGINT", async () => {
-  console.log("SIGINT received, closing worker...");
-  await worker.close();
-  process.exit(0);
-});
+  process.on("SIGINT", async () => {
+    console.log("SIGINT received, closing worker...");
+    await worker.close();
+    process.exit(0);
+  });
+}
 

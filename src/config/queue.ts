@@ -8,6 +8,47 @@ export let queueOptions: QueueOptions | null = null;
 // Track if we've already logged the fallback message to avoid spam
 let hasLoggedFallback = false;
 
+/**
+ * Test if Redis is actually available and connected
+ * This is used by the worker to determine if it should start
+ */
+export async function isRedisAvailable(): Promise<boolean> {
+  if (!photoProcessingQueue || !queueOptions) {
+    return false;
+  }
+
+  try {
+    // Give Redis a moment to attempt connection
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Try to get the waiting count - this will fail if Redis is not connected
+    await Promise.race([
+      photoProcessingQueue.getWaitingCount(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Redis connection timeout")), 2000)
+      )
+    ]);
+    return true;
+  } catch (error) {
+    // Check if it's a connection error
+    const errorAny = error as any;
+    const isConnectionError = 
+      errorAny?.message?.includes("ECONNREFUSED") || 
+      errorAny?.message?.includes("connect") ||
+      errorAny?.message?.includes("timeout") ||
+      errorAny?.code === "ECONNREFUSED" ||
+      errorAny?.name === "AggregateError" ||
+      (errorAny?.errors && Array.isArray(errorAny.errors) && 
+       errorAny.errors.some((e: any) => e?.code === "ECONNREFUSED" || e?.message?.includes("ECONNREFUSED")));
+    
+    if (isConnectionError) {
+      return false;
+    }
+    // For other errors, assume Redis is available (might be transient)
+    return true;
+  }
+}
+
 // Initialize queue only if Redis URL is provided
 // BullMQ connects asynchronously, so errors will be handled when queue is used
 if (env.REDIS_URL) {

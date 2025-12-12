@@ -27,11 +27,11 @@ export async function processImage(
   const stepStart = Date.now();
   
   // Step 1: Remove green screen
-  const greenScreenStart = Date.now();
-  const foregroundPath = getForegroundPath(jobId);
-  await removeGreenScreen(inputImagePath, foregroundPath);
-  const greenScreenDuration = Date.now() - greenScreenStart;
-  console.log(`[${jobId}]   Green screen removal: ${greenScreenDuration}ms`);
+  // const greenScreenStart = Date.now();
+  // const foregroundPath = getForegroundPath(jobId);
+  // await removeGreenScreen(inputImagePath, foregroundPath);
+  // const greenScreenDuration = Date.now() - greenScreenStart;
+  // console.log(`[${jobId}]   Green screen removal: ${greenScreenDuration}ms`);
 
   // Step 2: Get background path (checks for file existence)
   const bgLoadStart = Date.now();
@@ -46,7 +46,7 @@ export async function processImage(
 
   // Step 3: Load background and foreground
   const background = sharp(backgroundPath);
-  const foreground = sharp(foregroundPath);
+  const foreground = sharp(inputImagePath);
 
   // Get dimensions
   const bgMetadata = await background.metadata();
