@@ -94,6 +94,7 @@ worker.on("failed", (job, err) => {
 });
 
 worker.on("error", (err) => {
+<<<<<<< HEAD
   // Check if it's a connection error
   const errorAny = err as any;
   const isConnectionError = 
@@ -118,6 +119,23 @@ worker.on("error", (err) => {
     // Log non-connection errors normally
     console.error("Worker error:", err);
   }
+=======
+  console.error("Worker error:", err);
+  // Don't crash - let PM2 handle restarts if needed
+});
+
+// Handle uncaught exceptions - prevent worker crash
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception in worker:", error);
+  // Log but don't exit - let PM2 decide if restart is needed
+  // The error is already logged, job will be marked as failed
+});
+
+// Handle unhandled promise rejections
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection in worker:", reason);
+  // Log but don't exit - let PM2 handle it
+>>>>>>> parent of 0cf6c99 (Update photoProcessing.worker.ts)
 });
 
 console.log(`Photo processing worker started with concurrency: ${WORKER_CONCURRENCY}`);
